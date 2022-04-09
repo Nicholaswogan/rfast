@@ -7,6 +7,25 @@ from astropy.io import ascii
 from rfast_opac_routines import opacities_read
 from rfast_opac_routines import cia_read
 from rfast_opac_routines import rayleigh
+
+import numba as nb
+
+# misc routines for speeding up code
+@nb.njit(cache=True, fastmath=True) 
+def fast_power10_clip0(x):
+  x = np.clip(10**x,0,np.inf)
+  return x
+  
+@nb.njit(cache=True)
+def subtract_outer(a, b):
+  na = len(a)
+  nb = len(b)
+  c = np.empty((na,nb))
+  for i in range(na):
+    for j in range(nb):
+      c[i,j] = a[i] - b[j]      
+  return c 
+
 #
 #
 # flux adding routine for non-emitting, inhomogeneous, scattering atmosphere
@@ -26,57 +45,58 @@ from rfast_opac_routines import rayleigh
 #
 #       Ag    - planetary geometric albedo [Nlam]
 #
-def flxadd(dtau,g,omega,As,layp=-1):
+@nb.njit(cache=True)
+def flxadd(dtau, g, omega, As):
 
-# determine number of atmospheric layers, wavelength points
+  # determine number of atmospheric layers, wavelength points
   Nlay = dtau.shape[1]
   Nlam = dtau.shape[0]
 
-# initialize variables
-  r    = np.zeros([Nlam,Nlay])
-  t    = np.zeros([Nlam,Nlay])
-  Ru   = np.zeros([Nlam,Nlay+1])
+  # initialize variables
+  r = np.zeros((Nlam, Nlay))
+  t = np.zeros((Nlam, Nlay))
+  Ru = np.zeros((Nlam, Nlay + 1))
+    
+  for j in range(Nlam):
+    for i in range(Nlay):
+      # special case for single-scattering albedo of unity
+      if omega[j,i] == 1:
+        r[j,i] = 3 / 4 * ((1 - g[j,i])*(dtau[j,i]))/ \
+                 (1 + (3 / 4 * (1 - g[j,i]))*( dtau[j,i]))
+        t[j,i] = (1)/( 1 + (3 / 4 * (1 - g[j,i]))*(dtau[j,i]))
+        # more general case
+      else:
+        a = np.sqrt(1 - omega[j,i])
+        b = 3 / 2 * np.sqrt((1 - (omega[j,i])*( g[j,i])))
+        d = a + 2 / 3 * b  # convenient definition
+        if d != 0:
+          Ainf = (2 / 3 * b - a)/(d)
+        else:
+          Ainf = 0.0
+        # another convenient definition
+        d = 1 - (np.exp(-2 * (
+            (a)*(b))*(dtau[j,i])))*((Ainf**2))
+        r[j,i] = ((
+            Ainf)*((1 - np.exp(-2 * ((a)*(b))*(dtau[j,i])))))/(d)
+        t[j,i] = ((1 - Ainf**2)*(
+                  np.exp(-((a)*(b))*(dtau[j,i]))))/(d)
+                                  
+  # lower boundary condition
+  Ru[:, Nlay] = As
 
-# special case for single-scattering albedo of unity
-  ic = np.where(omega == 1)
-  if ic[0].size !=0:
-    r[ic] = 3/4*np.divide(np.multiply(1-g[ic],dtau[ic]),1 + np.multiply(3/4*(1-g[ic]),dtau[ic]))
-    t[ic] = np.divide(1,1 + np.multiply(3/4*(1-g[ic]),dtau[ic]))
-
-# more general case
-  ic = np.where(omega != 1)
-  if (ic[0].size !=0):
-
-#   intermediate quantities for computing layer radiative properties
-    a     = np.zeros([Nlam,Nlay])
-    b     = np.zeros([Nlam,Nlay])
-    d     = np.zeros([Nlam,Nlay])
-    Ainf  = np.zeros([Nlam,Nlay])
-    a[ic] = np.sqrt(1-omega[ic])
-    b[ic] = 3/2*np.sqrt((1-np.multiply(omega[ic],g[ic])))
-    d     = a + 2/3*b # convenient definition
-    id    = np.where(d != 0)
-    if id[0].size != 0:
-      Ainf[id] = np.divide(2/3*b[id] - a[id],d[id])
-    d     = 1 - np.multiply(np.exp(-2*np.multiply(np.multiply(a[ic],b[ic]),dtau[ic])),np.power(Ainf[ic],2)) # another convenient definition
-    r[ic] = np.divide(np.multiply(Ainf[ic],(1 - np.exp(-2*np.multiply(np.multiply(a[ic],b[ic]),dtau[ic])))),d)
-    t[ic] = np.divide(np.multiply(1 - np.power(Ainf[ic],2),np.exp(-np.multiply(np.multiply(a[ic],b[ic]),dtau[ic]))),d)
-
-# lower boundary condition
-  Ru[:,Nlay] = As
-
-# add reflectivity upwards from surface
-  for i in range(0,Nlay):
+  # add reflectivity upwards from surface
+  for i in range(0, Nlay):
     j = Nlay - 1 - i
-    Ru[:,j] = r[:,j] + t[:,j]**2*Ru[:,j+1]/(1 - r[:,j]*Ru[:,j+1])
+    Ru[:, j] = r[:, j] + t[:, j]**2 * \
+        Ru[:, j + 1] / (1 - r[:, j] * Ru[:, j + 1])
 
-# planetary albedo
-  Ag = Ru[:,0]
+  # planetary albedo
+  Ag = Ru[:, 0]
 
-# return additional quantities, if requested
-  if layp != -1:
-    if layp:
-      return Ag, r, t, a
+  # return additional quantities, if requested
+  # if layp != -1:
+  #     if layp:
+  #         return Ag, r, t, a
 
   return Ag
 #
@@ -516,17 +536,18 @@ def gen_spec(Nlev,Rp,a,As,em,p,t,t0,m,z,grav,Ts,Rs,ray,ray0,rayb,f,fb,
 
   # interpolate line opacities onto p/T grid, cannot be less than zero
   if ( np.any( pf == -1) and np.any( tf == -1) ): # varying p/t case
-    sigma = np.power(10,sigma_interp(np.log10(pm),1/tm))
+    sigma = sigma_interp(np.log10(pm),1/tm)
+    sigma = fast_power10_clip0(sigma)
   elif ( np.any( pf != -1) and np.any( tf == -1) ): # fixed p case
     sigma = np.power(10,sigma_interp(1/tm))
+    np.clip(sigma, 0, np.inf, out=None)
   elif ( np.any( pf == -1) and np.any( tf != -1) ): # fixed t case
     sigma = np.power(10,sigma_interp(np.log10(pm)))
+    np.clip(sigma, 0, np.inf, out=None)
   else: # fixed p and t
     sigma0 = np.power(10,sigma_interp())
     sigma  = np.repeat(sigma0[:,np.newaxis,:], Nlay, axis=1)
-
-  izero        = np.where(sigma < 0)
-  sigma[izero] = 0
+    np.clip(sigma, 0, np.inf, out=None)
 
   # interpolate cia coefficients onto temperature grid, cannot be less than zero
   if ( np.any( tf == -1) ): # varying temp case
@@ -1177,25 +1198,32 @@ def init(lam_lr,dlam_lr,lam_hr,species_l,species_c,opdir,pf,tf,mode=-1):
   # x0 is log10(pressure), y0 is inverse temperature
   # x0, y0 are vectors of identical length (e.g., atm. model)
   # returns log10(opacity) in m**2/molecule
-  def sigma_interp_2D(x0,y0):
+  @nb.njit()
+  def sigma_interp_2D(x0, y0):
 
     # finds gridpoints nearest to interpolation points
-    dx    = np.subtract.outer(x,x0)
-    ix    = np.argmin(np.absolute(dx),axis=0)
-    dy    = np.subtract.outer(y,y0)
-    iy    = np.argmin(np.absolute(dy),axis=0)
+    dx = subtract_outer(x, x0)
+    ix = np.argmin(np.absolute(dx), axis=0)
+    ix = ix.astype(np.int32)
+    dy = subtract_outer(y, y0)
+    iy = np.argmin(np.absolute(dy), axis=0)
+    iy = iy.astype(np.int32)
 
     # matrices of distances from interpolation points
-    dx    = x[ix]-x0
-    dx    = np.repeat(dx[np.newaxis,:], gradx.shape[0], axis=0)
-    dx    = np.repeat(dx[:,:,np.newaxis], gradx.shape[3], axis=2)
-    dy    = y[iy]-y0
-    dy    = np.repeat(dy[np.newaxis,:], grady.shape[0], axis=0)
-    dy    = np.repeat(dy[:,:,np.newaxis], grady.shape[3], axis=2)
+    dx = np.empty((len(ix)))
+    dx = x[ix] - x0
+    dy = np.empty((len(iy)))
+    dy = y[iy] - y0
 
     # interpolate using gradients, distances
-    z0    = z[:,ix,iy,:] - np.multiply(gradx[:,ix,iy,:],dx) - np.multiply(grady[:,ix,iy,:],dy)
-
+    z0 = np.empty((z.shape[0],len(ix),z.shape[3]),dtype=np.float64)
+    for i in range(z.shape[0]):
+      for j in range(len(ix)):
+        for k in range(z.shape[3]):
+          z0[i,j,k] = z[i, ix[j], iy[j], k] - \
+                      gradx[i, ix[j], iy[j], k] * dx[j] - \
+                      grady[i, ix[j], iy[j], k] * dy[j] 
+                            
     return z0
 
   # set up 1-D interpolation, if needed

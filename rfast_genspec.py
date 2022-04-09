@@ -61,9 +61,6 @@ threeD   = init_3d(src,ntg)
 mmr = False
 if (imix == 1): mmr = True
 
-# timing
-tstart = time.time()
-
 # initialize atmospheric model
 #tstarts = time.time()
 p,t,z,grav,f,fb,m,nu = setup_atm(Nlev,Ngas,gasid,mmw0,pmin,pmax,
@@ -71,9 +68,14 @@ p,t,z,grav,f,fb,m,nu = setup_atm(Nlev,Ngas,gasid,mmw0,pmin,pmax,
                                  species_r,f0,rdgas,fnatm,skpatm,colr,colpr,psclr,
                                  mmr,mb,Mp,Rp,cld,pt,dpc,tauc0,p10,fp10,src,ref,nu0)
 #print('Atmospheric setup timing (s): ',time.time()-tstarts)
-
+F1_hr,F2_hr = gen_spec(Nlev,Rp,a,As,em,p,t,t0,m,z,grav,Ts,Rs,ray,ray0,rayb,f,fb,
+                       mmw0,mmr,ref,nu,alpha,threeD,
+                       gasid,ncia,ciaid,species_l,species_c,
+                       cld,sct,phfc,fc,pt,dpc,gc,wc,tauc,
+                       src,sigma_interp,cia_interp,lam_hr,pf=pf,tf=tf)
 # call forward model
 #tstartg = time.time()
+tstart = time.time()
 F1_hr,F2_hr = gen_spec(Nlev,Rp,a,As,em,p,t,t0,m,z,grav,Ts,Rs,ray,ray0,rayb,f,fb,
                        mmw0,mmr,ref,nu,alpha,threeD,
                        gasid,ncia,ciaid,species_l,species_c,
