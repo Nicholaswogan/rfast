@@ -12,9 +12,14 @@ import numba as nb
 
 # misc routines for speeding up code
 @nb.njit(cache=True, fastmath=True) 
-def fast_power10_clip0(x):
-  x = np.clip(10**x,0,np.inf)
-  return x
+def fast_power10_clip0(x) -> None:
+    n0 = x.shape[0]
+    n1 = x.shape[1]
+    n2 = x.shape[2]
+    for i in range(n0):
+        for j in range(n1):
+            for k in range(n2):
+                x[i,j,k] = np.maximum(10**x[i,j,k],0)
   
 @nb.njit(cache=True)
 def subtract_outer(a, b):
@@ -537,7 +542,7 @@ def gen_spec(Nlev,Rp,a,As,em,p,t,t0,m,z,grav,Ts,Rs,ray,ray0,rayb,f,fb,
   # interpolate line opacities onto p/T grid, cannot be less than zero
   if ( np.any( pf == -1) and np.any( tf == -1) ): # varying p/t case
     sigma = sigma_interp(np.log10(pm),1/tm)
-    sigma = fast_power10_clip0(sigma)
+    fast_power10_clip0(sigma)
   elif ( np.any( pf != -1) and np.any( tf == -1) ): # fixed p case
     sigma = np.power(10,sigma_interp(1/tm))
     np.clip(sigma, 0, np.inf, out=None)
