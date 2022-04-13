@@ -271,7 +271,6 @@ filedata = filedata.replace('TARGETL4',targetl4)
 filedata = filedata.replace('TARGETP1',targetp1)
 filedata = filedata.replace('TARGETP2',targetp2)
 filedata = filedata.replace('TARGETP3',targetp3)
-filedata = filedata.replace('TARGETP6',targetl4)
 filedata = filedata.replace('TARGETP4',targetp4)
 filedata = filedata.replace('TARGETP5',targetp5)
 

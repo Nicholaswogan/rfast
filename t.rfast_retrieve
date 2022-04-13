@@ -101,7 +101,6 @@ def lnprior(x):
   TARGETP1
   TARGETP2
   TARGETP3
-  TARGETP6
 
   # sum gaussian priors
   TARGETP4
