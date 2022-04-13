@@ -229,14 +229,14 @@ if (ngas > 0):
 
 # set up prior syntax
 targetp1 = targetl1
-targetp2 = targetl2
-targetp3 = "# no retrieved gases or performing clr retrieval"
-if (not clr):
-  targetp3 = targetl3
+targetp2 = targetl3
 if (clr and nlog-nlgas >= 1):
   targetp2 = priorl1 + " = " + priorl2
-else:
+if (clr and nlog-nlgas  < 1):
   targetp2 = "# no log-retrieved non-gas parameters"
+targetp3 = "# no retrieved gases or performing clr retrieval"
+if (not clr):
+  targetp3 = targetl4
 iret    = 0
 ilog    = 0
 igas    = 0
