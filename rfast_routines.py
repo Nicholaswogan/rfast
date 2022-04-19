@@ -737,15 +737,23 @@ def gen_spec_grid(x_min,x_max,res,Nres=0):
     x_hgh = x_max + x_max/res*Nres
     x,Dx  = spectral_grid(x_low,x_hgh,res=res)
   else:
-    x_sml = x_min[0]/1e3
-    x_low = max(x_sml,x_min[0] - x_min[0]/res[0]*Nres)
-    x_hgh = x_max[0] + x_max[0]/res[0]*Nres
-    x,Dx  = spectral_grid(x_low,x_hgh,res=res[0])
+    if res[0] == 0:
+      x = np.array([(x_max[0]+x_min[0])/2])
+      Dx = np.array([(x_max[0]-x_min[0])/2])
+    else:
+      x_sml = x_min[0]/1e3
+      x_low = max(x_sml,x_min[0] - x_min[0]/res[0]*Nres)
+      x_hgh = x_max[0] + x_max[0]/res[0]*Nres
+      x,Dx  = spectral_grid(x_low,x_hgh,res=res[0])
     for i in range(1,len(x_min)):
-      x_sml  = x_min[i]/1e3
-      x_low  = max(x_sml,x_min[i] - x_min[i]/res[i]*Nres)
-      x_hgh  = x_max[i] + x_max[i]/res[i]*Nres
-      xi,Dxi = spectral_grid(x_low,x_hgh,res=res[i])
+      if res[i] == 0:
+        xi = np.array([(x_max[i]+x_min[i])/2])
+        Dxi = np.array([(x_max[i]-x_min[i])/2])
+      else:
+        x_sml  = x_min[i]/1e3
+        x_low  = max(x_sml,x_min[i] - x_min[i]/res[i]*Nres)
+        x_hgh  = x_max[i] + x_max[i]/res[i]*Nres
+        xi,Dxi = spectral_grid(x_low,x_hgh,res=res[i])
       x      = np.concatenate((x,xi)) 
       Dx     = np.concatenate((Dx,Dxi))
     Dx = [Dxs for _,Dxs in sorted(zip(x,Dx))]
