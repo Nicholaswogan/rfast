@@ -110,6 +110,7 @@ rnd       = False    # randomize error bars or simply center on truth?
 nwalkers  = 30       # emcee, number of walkers
 nstep     = 50       # emcee, number of steps
 nburn     = 10       # emcee, number of burn-in steps; negative -> count from end
+nprocess  = max      # number of parallel processes, can be "max"
 thin      = 1        # emcee, thinning parameter
 clr       = False    # it true, retrieval operates in center-log ratio
 fmin      = 1e-12    # minimim mixing ratio for clr priors, benneke & seager (2012)

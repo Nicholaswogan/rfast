@@ -37,7 +37,7 @@ src,\
 alpha,ntg,\
 Ts,Rs,\
 ntype,snr0,lam0,rnd,\
-clr,fmin,mmr,nwalkers,nstep,nburn,thin,restart,progress = inputs(filename_scr)
+clr,fmin,mmr,nwalkers,nstep,nburn,nprocess,thin,restart,progress = inputs(filename_scr)
 
 # set info for all radiatively active gases, including background gas
 Ngas,gasid,mmw0,ray0,nu0,mb,rayb = set_gas_info(bg)

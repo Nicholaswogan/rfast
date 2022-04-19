@@ -27,7 +27,7 @@ src,\
 alpha,ntg,\
 Ts,Rs,\
 ntype,snr0,lam0,rnd,\
-clr,fmin,mmr,nwalkers,nstep,nburn,thin,restart,progress = inputs(filename_scr)
+clr,fmin,mmr,nwalkers,nstep,nburn,nprocess,thin,restart,progress = inputs(filename_scr)
 
 # uniform minimum mixing ratio for clr retrievals; after benneke & seager (2012)
 if clr:
@@ -273,6 +273,7 @@ filedata = filedata.replace('TARGETP2',targetp2)
 filedata = filedata.replace('TARGETP3',targetp3)
 filedata = filedata.replace('TARGETP4',targetp4)
 filedata = filedata.replace('TARGETP5',targetp5)
+filedata = filedata.replace('TARGETH1',nprocess)
 
 # write new file
 with open('rfast_retrieve.py', 'w') as file:

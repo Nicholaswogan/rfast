@@ -67,7 +67,7 @@ src,\
 alpha,ntg,\
 Ts,Rs,\
 ntype,snr0,lam0,rnd,\
-clr,fmin,mmr,nwalkers,nstep,nburn,thin,restart,progress = inputs(filename_scr)
+clr,fmin,mmr,nwalkers,nstep,nburn,nprocess,thin,restart,progress = inputs(filename_scr)
 
 # input data filename
 fn_dat = fnn + '.dat'

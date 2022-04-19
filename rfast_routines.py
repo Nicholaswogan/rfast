@@ -769,7 +769,10 @@ def inputs(filename_scr):
   # flags for planet mass and gravity inputs
   mf = False
   gf = False
-
+  
+  # default values
+  nprocess = "max"
+  
   # read inputs
   with open(filename_scr) as f:
     for line in f:
@@ -1045,6 +1048,8 @@ def inputs(filename_scr):
         nstep = int(vv)
       elif (vn.lower() == 'nburn'):
         nburn = int(vv)
+      elif (vn.lower()) == 'nprocess':
+        nprocess = vv
       elif (vn.lower() == 'thin'):
         thin = int(vv)
       elif (vn.lower() == 'grey'):
@@ -1146,6 +1151,11 @@ def inputs(filename_scr):
   if (p10 > pmax):
     print("rfast warning | major | transit radius pressure below bottom of atmosphere")
     quit()
+    
+  if nprocess == "max":
+    nprocess = ""
+  else:
+    nprocess = str(int(nprocess))
 
   return fnr,fnn,fns,dirout,Nlev,pmin,pmax,bg,\
          species_r,f0,rdgas,fnatm,skpatm,colr,colpr,psclr,imix,\
@@ -1159,7 +1169,7 @@ def inputs(filename_scr):
          alpha,ntg,\
          Ts,Rs,\
          ntype,snr0,lam0,rnd,\
-         clr,fmin,mmr,nwalkers,nstep,nburn,thin,restart,progress
+         clr,fmin,mmr,nwalkers,nstep,nburn,nprocess,thin,restart,progress
 #
 #
 # initializes opacities and convolution kernels
