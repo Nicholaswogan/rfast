@@ -20,7 +20,7 @@ fnr,fnn,fns,dirout,Nlev,pmin,pmax,bg,\
 species_r,f0,rdgas,fnatm,skpatm,colr,colpr,psclr,imix,\
 t0,rdtmp,fntmp,skptmp,colt,colpt,psclt,\
 species_l,species_c,\
-lams,laml,res,regrid,smpl,opdir,\
+lams,laml,res,modes,regrid,smpl,opdir,\
 Rp,Mp,gp,a,As,em,\
 grey,phfc,w,g1,g2,g3,pt,dpc,tauc0,lamc0,fc,\
 ray,cld,ref,sct,fixp,pf,fixt,tf,p10,fp10,\

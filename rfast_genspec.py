@@ -14,6 +14,7 @@ from rfast_routines      import kernel_convol
 from rfast_routines      import init
 from rfast_routines      import init_3d
 from rfast_routines      import inputs
+from rfast_routines      import modes_to_mode
 from rfast_atm_routines  import set_gas_info
 from rfast_atm_routines  import setup_atm
 from rfast_opac_routines import init_cloud_optics
@@ -29,7 +30,7 @@ fnr,fnn,fns,dirout,Nlev,pmin,pmax,bg,\
 species_r,f0,rdgas,fnatm,skpatm,colr,colpr,psclr,imix,\
 t0,rdtmp,fntmp,skptmp,colt,colpt,psclt,\
 species_l,species_c,\
-lams,laml,res,regrid,smpl,opdir,\
+lams,laml,res,modes,regrid,smpl,opdir,\
 Rp,Mp,gp,a,As,em,\
 grey,phfc,w,g1,g2,g3,pt,dpc,tauc0,lamc0,fc,\
 ray,cld,ref,sct,fixp,pf,fixt,tf,p10,fp10,\
@@ -47,8 +48,10 @@ Nres           = 3 # no. of res elements to extend beyond grid edges to avoid ed
 lam,dlam       = gen_spec_grid(lams,laml,np.float_(res),Nres=0)
 lam_hr,dlam_hr = gen_spec_grid(lams,laml,np.float_(res)*smpl,Nres=np.rint(Nres*smpl))
 
+mode = modes_to_mode(lam, lams, laml, modes)
+
 # initialize opacities and convolution kernels
-sigma_interp,cia_interp,ncia,ciaid,kern = init(lam,dlam,lam_hr,species_l,species_c,opdir,pf,tf)
+sigma_interp,cia_interp,ncia,ciaid,kern = init(lam,dlam,lam_hr,species_l,species_c,opdir,pf,tf,mode=mode)
 
 # initialize cloud asymmetry parameter, single scattering albedo, extinction efficiency
 gc,wc,Qc = init_cloud_optics(lam_hr,g1,g2,g3,w,lamc0,grey,cld,opdir)

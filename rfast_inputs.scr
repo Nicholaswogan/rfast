@@ -46,6 +46,7 @@ species_c = n2,o2                    # cia cases to include: co2,h2,n2,o2
 lams      = 0.2,0.4,1.0   # short wavelength cutoff (um)
 laml      = 0.4,1.0,1.8   # long wavelength cutoff (um)
 res       = 7,140,40      # spectral resolving power (lam/dlam)
+modes     = 1,1,1
 regrid    = True     # use input spectral grid, or generate new?
 smpl      = 10.      # factor to oversample by in monochromatic calculation
 opdir     =          # path to hi-res opacities folder

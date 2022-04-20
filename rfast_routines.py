@@ -29,7 +29,20 @@ def subtract_outer(a, b):
   for i in range(na):
     for j in range(nb):
       c[i,j] = a[i] - b[j]      
-  return c 
+  return c
+  
+def modes_to_mode(lam, lams, laml, modes):
+  mode = np.empty(len(lam),np.int32)
+  for i in range(len(lam)):
+    found = False
+    for j in range(len(lams)):
+      if lams[j] <= lam[i] <= laml[j]:
+        mode[i] = modes[j]
+        found = True
+        break
+    if not found:
+      raise Exception("Issue assigning mode.")
+  return mode
 
 #
 #
@@ -780,6 +793,7 @@ def inputs(filename_scr):
   
   # default values
   nprocess = "max"
+  modes = None
   
   # read inputs
   with open(filename_scr) as f:
@@ -970,6 +984,17 @@ def inputs(filename_scr):
         else:
           res     = np.zeros(1)
           res[:]  = float(vv[0])
+      elif (vn.lower() == 'modes'):
+        vv = vv.partition(',')
+        if (len(vv[2]) > 0):
+          modes = [int(vv[0])]
+          while (len(vv[2]) > 0):
+            vv = vv[2].partition(',')
+            modes = np.concatenate((modes,[int(vv[0])]))
+        else:
+          modes     = np.zeros(1,np.int32)
+          modes[:]  = int(vv[0])
+        modes = np.array(modes, np.int32)
       elif (vn.lower() == 'f0'):
         vv = vv.partition(',')
         if (len(vv[2]) > 0):
@@ -1164,12 +1189,15 @@ def inputs(filename_scr):
     nprocess = ""
   else:
     nprocess = str(int(nprocess))
+    
+  if type(modes) != np.ndarray:
+    modes = np.ones(len(res),np.int32)
 
   return fnr,fnn,fns,dirout,Nlev,pmin,pmax,bg,\
          species_r,f0,rdgas,fnatm,skpatm,colr,colpr,psclr,imix,\
          t0,rdtmp,fntmp,skptmp,colt,colpt,psclt,\
          species_l,species_c,\
-         lams,laml,res,regrid,smpl,opdir,\
+         lams,laml,res,modes,regrid,smpl,opdir,\
          Rp,Mp,gp,a,As,em,\
          grey,phfc,w,g1,g2,g3,pt,dpc,tauc0,lamc0,fc,\
          ray,cld,ref,sct,fixp,pf,fixt,tf,p10,fp10,\
@@ -1391,7 +1419,7 @@ def kernel(x,x_hr,Dx = -1,mode = -1):
           kern[i,:] = 0
 
       elif (mode[i] == 0): # photometric point
-        j         = np.squeeze(np.where(np.logical_and(x_hr >= x[i]-Dx[i]/2, x_hr <= x[i]+Dx[i]/2)))
+        j         = np.where(np.logical_and(x_hr >= x[i]-Dx[i]/2, x_hr <= x[i]+Dx[i]/2))[0]
         if ( len(j) > 0 ):
           kern[i,j] = 1
           # edge handling
