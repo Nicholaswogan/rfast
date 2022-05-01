@@ -5,7 +5,7 @@ import numpy as np
 import numba as nb
 import astropy as ap
 import emcee
-from multiprocessing import Pool
+from multiprocess import Process
 
 import rfast_routines as rtns
 import rfast_atm_routines as atm_rtns
@@ -74,6 +74,7 @@ class Rfast(RfastBaseClass):
     
     # attribute for retrieval things
     self.retrieval = None
+    self.retrieval_processes = []
     
     # prevent new attributes 
     self._freeze()
@@ -350,7 +351,7 @@ class Rfast(RfastBaseClass):
     # Set retrieval parameters
     self.retrieval = RetrieveParams(self.scr, rpars_txt)
     
-  def retrieve(self, dat, err, overwrite = False):
+  def prepare_retrieval(self, dat, err, overwrite = False, h5_file = None):
     retrieval = self.retrieval
     # check for initialization
     if retrieval is None:
@@ -382,7 +383,10 @@ class Rfast(RfastBaseClass):
               self.scr.clr, retrieval.nret_gas, self.scr.fmin)
 
     ndim = len(guess_t)
-    h5_filename = self.scr.dirout+self.scr.fnr+'.h5'
+    if h5_file is None:
+      h5_filename = self.scr.dirout+self.scr.fnr+'.h5'
+    else:
+      h5_filename = h5_file
     if not self.scr.restart:
       if os.path.isfile(h5_filename):
         if overwrite:
@@ -407,12 +411,38 @@ class Rfast(RfastBaseClass):
     else:
       nprocess = int(self.scr.nprocess)
       
+    return ndim, backend, pos
+    
+  def _retrieve(self, dat, err, progress, overwrite, h5_file):
+    ndim, backend, pos = self.prepare_retrieval(dat, err, overwrite=overwrite, h5_file=h5_file)
     # arguments
     args = (self, dat, err,)
+    sampler = emcee.EnsembleSampler(self.scr.nwalkers, ndim, lnprob, backend=backend, args=args)
+    sampler.run_mcmc(pos, self.scr.nstep, progress=progress)
+
+  def retrieve(self, dat, err, progress = False, overwrite = False, h5_file = None):
+    self._retrieve(self, dat, err, progress, overwrite, h5_file)
     
-    with Pool(nprocess) as pool:
-      sampler = emcee.EnsembleSampler(self.scr.nwalkers, ndim, lnprob, backend=backend, pool=pool, args = args)
-      sampler.run_mcmc(pos, self.scr.nstep, progress=self.scr.progress)
+  def retrieve_process(self, dat, err, h5_file):
+    p = Process(target=self._retrieve, args=(dat, err, False, False, h5_file))
+    p.start()
+    out = {}
+    out['process'] = p
+    out['h5_file'] = h5_file
+    self.retrieval_processes.append(out)
+    
+  def monitor_retrievals(self):
+    nprocess = len(self.retrieval_processes)
+    if nprocess == 0:
+      print('No retrievals are active')
+    else:
+      for process in self.retrieval_processes:
+        if process['process'].is_alive():
+          tmp = "Running..."
+        else:
+          tmp = "Completed."
+        print(process['h5_file']+': ',tmp)
+    
 
 
 class RetrieveParams(RfastBaseClass):
@@ -558,7 +588,6 @@ class RetrieveParams(RfastBaseClass):
 
 
 # Utility functions
-
 def src_to_names(src, is_noise=False):
   if (src == 'diff' or src == 'cmbn'):
     names = ['wavelength (um)', 'd wavelength (um)', 'albedo', 'flux ratio']
@@ -579,7 +608,6 @@ def src_to_names(src, is_noise=False):
   return names
   
 # MCMC function things
-
 @nb.njit()
 def transform_parameters(x, log_space, clr, ng, fmin):
   x_t = np.empty(x.size)
@@ -707,6 +735,4 @@ def lnprob(x_t, r, dat, err):
   if not np.isfinite(lp):
     return -np.inf
   return lp + lnlike(x, r, f0, dat, err)
-  
-  
   
