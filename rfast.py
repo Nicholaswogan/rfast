@@ -421,7 +421,7 @@ class Rfast(RfastBaseClass):
     sampler.run_mcmc(pos, self.scr.nstep, progress=progress)
 
   def retrieve(self, dat, err, progress = False, overwrite = False, h5_file = None):
-    self._retrieve(self, dat, err, progress, overwrite, h5_file)
+    self._retrieve(dat, err, progress, overwrite, h5_file)
     
   def retrieve_process(self, dat, err, h5_file):
     p = Process(target=self._retrieve, args=(dat, err, False, False, h5_file))
