@@ -265,7 +265,7 @@ REQUIRED_KEYS = \
   "restart": [bool],
 }
 
-# Utility functions for writing output
+# Utility function for writing output
 def src_to_names(src, is_noise=False):
   if (src == 'diff' or src == 'cmbn'):
     names = ['wavelength (um)', 'd wavelength (um)', 'albedo', 'flux ratio']
