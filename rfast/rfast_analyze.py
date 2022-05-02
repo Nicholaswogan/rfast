@@ -117,10 +117,10 @@ tauc     = tauc0*Qc
 threeD   = init_3d(src,ntg)
 
 # parameter names
-TARGETA1
-TARGETA2
-TARGETA3
-TARGETA4
+lfN2,lfO2,lfH2O,lfCO2,lfO3,lfCH4 = np.log10(f0[species_r=='n2'][0]),np.log10(f0[species_r=='o2'][0]),np.log10(f0[species_r=='h2o'][0]),np.log10(f0[species_r=='co2'][0]),np.log10(f0[species_r=='o3'][0]),np.log10(f0[species_r=='ch4'][0])
+lpmax,lAs,lRp,lgp,ldpc,lpt,ltauc0,lfc = np.log10(pmax),np.log10(As),np.log10(Rp),np.log10(gp),np.log10(dpc),np.log10(pt),np.log10(tauc0),np.log10(fc)
+names  = [r"$\log\,$"+r"$f_\mathrm{N2}$",r"$\log\,$"+r"$f_\mathrm{O2}$",r"$\log\,$"+r"$f_\mathrm{H2O}$",r"$\log\,$"+r"$f_\mathrm{CO2}$",r"$\log\,$"+r"$f_\mathrm{O3}$",r"$\log\,$"+r"$f_\mathrm{CH4}$",r"$\log\,$"+r"$p_{0}$",r"$\log\,$"+r"$A_\mathrm{s}$",r"$\log\,$"+r"$R_\mathrm{p}$",r"$\log\,$"+r"$g$",r"$\log\,$"+r"$\Delta p_\mathrm{c}$",r"$\log\,$"+r"$p_\mathrm{t}$",r"$\log\,$"+r"$\tau_\mathrm{c}$",r"$\log\,$"+r"$f_\mathrm{c}$"]
+truths = [lfN2,lfO2,lfH2O,lfCO2,lfO3,lfCH4,lpmax,lAs,lRp,lgp,ldpc,lpt,ltauc0,lfc]
 ndim   = len(names)
 
 # import chain data
@@ -138,7 +138,7 @@ ndim     = samples.shape[2]
 
 # if doing center-log ratio, transform back to mixing ratio
 if clr:
-  TARGETA5
+  gind = [0,1,2,3,4,5]
   xi   = samples[:,:,gind]
   clrs = np.sum(np.exp(xi),axis=2) + np.exp(-np.sum(xi,axis=2))
   clrs = np.repeat(clrs[:,:,np.newaxis], len(gind), axis=2)
@@ -162,9 +162,9 @@ plt.close(fig)
 
 # plot best-fit model and residuals
 gp = -1 # reverts to using Mp if gp not retrieved
-TARGETA6
-TARGETA7
-TARGETA8
+lfN2,lfO2,lfH2O,lfCO2,lfO3,lfCH4,lpmax,lAs,lRp,lgp,ldpc,lpt,ltauc0,lfc = samples[pos_max][0]
+fN2,fO2,fH2O,fCO2,fO3,fCH4,pmax,As,Rp,gp,dpc,pt,tauc0,fc = 10**(lfN2),10**(lfO2),10**(lfH2O),10**(lfCO2),10**(lfO3),10**(lfCH4),10**(lpmax),10**(lAs),10**(lRp),10**(lgp),10**(ldpc),10**(lpt),10**(ltauc0),10**(lfc)
+f0[species_r=='n2'],f0[species_r=='o2'],f0[species_r=='h2o'],f0[species_r=='co2'],f0[species_r=='o3'],f0[species_r=='ch4'] = fN2,fO2,fH2O,fCO2,fO3,fCH4
 x0 = f0,pmax,Rp,Mp,gp,As,pt,dpc,tauc0,fc,t0,a,gc,wc,Qc,alpha,mb,rayb
 y  = lam_hr,pmin,Ngas,mmw0,nu0,em,Ts,Rs,ray0,gasid,ncia,ciaid,species_l,species_c,\
      Rpi,sigma_interp,cia_interp,kern,ray,ref,cld,sct,phfc,fixp,pf,fixt,tf,mmr,\
