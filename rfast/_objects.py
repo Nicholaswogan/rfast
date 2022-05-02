@@ -1,10 +1,11 @@
-from dataclasses import dataclass
-
+import os
 import numpy as np
-import rfast_routines as rtns
-import rfast_atm_routines as atm_rtns
 
-from _rfast_input import read_yaml_input
+from . import _routines as rtns
+from . import _atm_routines as atm_rtns
+from ._input import read_yaml_input
+
+THISFILEDIR = os.path.dirname(os.path.realpath(__file__))
 
 # Rfast base data class. The idea is to
 # prevent the addition of attributes after
@@ -130,6 +131,7 @@ class RfastInputs(RfastBaseClass):
         if (self.imix == 1):
             self.mmr = True
 
+        self.opdir = THISFILEDIR+'/hires_opacities/'
         self._freeze()
 
 

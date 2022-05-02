@@ -1,14 +1,13 @@
-import lblabc_input
 import math
 import os
 import numpy as np
+import numba as nb
 from scipy import interpolate
 from astropy.io import ascii
-from rfast_opac_routines import opacities_read
-from rfast_opac_routines import cia_read
-from rfast_opac_routines import rayleigh
 
-import numba as nb
+from ._opac_routines import opacities_read
+from ._opac_routines import cia_read
+from ._opac_routines import rayleigh
 
 # misc routines for speeding up code
 
@@ -1229,9 +1228,9 @@ def inputs(filename_scr):
         opdir = './hires_opacities/'
 
     # check if opacities directory exists
-    if (not os.path.isdir(opdir)):
-        print("rfast warning | major | opacities directory does not exist")
-        quit()
+    # if (not os.path.isdir(opdir)):
+    #     print("rfast warning | major | opacities directory does not exist")
+    #     quit()
 
     # check if output directory exist; create if it does not
     if (len(dirout) > 0 and dirout[-1] != '/'):

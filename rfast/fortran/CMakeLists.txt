@@ -1,7 +1,7 @@
 # Fortran that f2py needs to parse
 set(F2PY_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/lblabc_input.f95)
 
-set(f2py_module_name "lblabc_input") # name of the python module
+set(f2py_module_name "_lblabc_input") # name of the python module
 
 # Most of the stuff below is boilerplate CMake required
 # to make a f2py library.

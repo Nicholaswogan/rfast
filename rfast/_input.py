@@ -1,8 +1,8 @@
 import numpy as np
+
 import ruamel.yaml as yaml
 import warnings
 import os
-
 
 def read_yaml_input(scr_file):
     fil = open(scr_file, 'r')
@@ -142,9 +142,9 @@ def read_yaml_input(scr_file):
         data['opdir'] = data['opdir'] + '/'
 
     # check if opacities directory exists
-    if (not os.path.isdir(data['opdir'])):
-        raise Exception(
-            "rfast warning | major | opacities directory does not exist")
+    # if (not os.path.isdir(data['opdir'])):
+    #     raise Exception(
+    #         "rfast warning | major | opacities directory does not exist")
 
     # check if output directory exists
     if (len(data['dirout']) > 0 and data['dirout'][-1] != '/'):
@@ -286,8 +286,6 @@ REQUIRED_KEYS = \
     }
 
 # Utility function for writing output
-
-
 def src_to_names(src, is_noise=False):
     if (src == 'diff' or src == 'cmbn'):
         names = ['wavelength (um)', 'd wavelength (um)',

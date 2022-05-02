@@ -1,7 +1,8 @@
-import lblabc_input
 import numpy as np
 from scipy import interpolate
 from astropy.io import ascii
+
+from . import _lblabc_input as lblabc_input
 #
 #
 # routine to read-in cia data
