@@ -569,23 +569,28 @@ class RetrieveParams(RfastBaseClass):
       raise Exception("rfast warning | major | center-log retrieval functions only if len(f0) equals number of retrieved gases")
     
     # set data attributes
+    
+    # actual  parameters
     self.nret = nret
+    self.param_name_inds = param_name_inds
+    
     self.gauss_prior = np.array(gauss_prior)
     self.log_space = np.array(log_space)
-    self.param_name_inds = param_name_inds
     self.p1 = np.array(p1_n)
     self.p2 = np.array(p2_n)
     
+    # gases making up f0
     self.nret_gas = nret_gas
     self.ret_gas_names = np.array(ret_gas_names)
     self.ret_gas_inds = np.array(ret_gas_inds)
+    
+    # genspec inputs
     self.nret_param = nret_param
     self.ret_param_names = np.array(ret_param_names)
     self.ret_param_inds = np.array(ret_param_inds)
     
     # no new attributes
     self._freeze()
-
 
 # Utility functions
 def src_to_names(src, is_noise=False):
@@ -670,7 +675,7 @@ def lnlike(x, r, f0, dat, err):
   
   return -0.5*(np.sum((dat-F_out)**2/err**2))
 
-# @nb.njit()  
+@nb.njit()
 def lnprior(x, f0, pt, dpc, pmax, cld, gauss_prior, p1, p2):
   # still need to impliment center log stuff
   
