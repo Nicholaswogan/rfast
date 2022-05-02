@@ -22,9 +22,7 @@ class Rfast(RfastBaseClass):
     # Read input scr file
     scr = RfastInputs(scr_file)
     self.scr = scr
-    if scr.clr:
-      raise Exception("Center log stuff does not work")
-
+    
     # set info for all radiatively active gases, including background gas
     self.gparams = GasParams(self.scr.bg)
     
@@ -401,7 +399,7 @@ class Rfast(RfastBaseClass):
     guess_t = transform_parameters(guess, retrieval.log_space, \
               self.scr.clr, retrieval.ngas, self.scr.fmin)
 
-    ndim = len(guess_t)
+    ndim = retrieval.nret
     if h5_file is None:
       h5_filename = self.scr.dirout+self.scr.fnr+'.h5'
     else:
@@ -599,7 +597,7 @@ class RetrieveParams(RfastBaseClass):
     self.param_names = np.array(param_names,str)
     self.param_labels = np.array(param_labels,str)
     
-    # Determine if certain cloud parameters are being retrieved.
+    # Determine if parameters are being retrieved.
     # If they are, then we will save their index relative to self.param_names
     self.retrieving_pt = 'pt' in param_names
     if self.retrieving_pt:
@@ -618,6 +616,12 @@ class RetrieveParams(RfastBaseClass):
       self.pmax_ind = param_names.index('pmax')
     else:
       self.pmax_ind = None
+      
+    self.retrieving_gp = "gp" in param_names
+    if self.retrieving_gp:
+      self.gp_ind = param_names.index('gp')
+    else:
+      self.gp_ind = None
     
     # length nret
     self.gauss_prior = np.array(gauss_prior)
@@ -634,6 +638,14 @@ class RetrieveParams(RfastBaseClass):
     self.ngenspec = ngenspec
     self.genspec_names = np.array(genspec_names,str)
     self.genspec_inds = np.array(genspec_inds) # indexs correspond to r.scr_genspec_inputs
+    
+    # if clr retrieval stuff
+    self.ximin = None
+    self.ximax = None
+    if scr.clr:
+      n = len(scr.f0) + 1
+      self.ximin = (n-1.)/n*(np.log(scr.fmin) - np.log((1.-scr.fmin)/(n-1.)))
+      self.ximax = (n-1)/n*(np.log(1-n*scr.fmin) - np.log(scr.fmin))
     
     # no new attributes
     self._freeze()
@@ -683,7 +695,7 @@ def untransform_parameters(x_t, log_space, clr, ng):
         
   return x
   
-def lnlike(x, r, f0, dat, err):
+def lnlike(r, x, f0, dat, err):
   retrieval = r.retrieval
   scr = r.scr
 
@@ -697,38 +709,58 @@ def lnlike(x, r, f0, dat, err):
   for i in range(len(x0_params)):
     ind = retrieval.genspec_inds[i]
     x0[ind] = x0_params[i]
-  
+    
+  # if gravity (gp) is not being retrieved,
+  # then we must overwrite the scr_genspec_inputs value
+  if not retrieval.retrieving_gp:
+    x0[4] = -1
+    
   # call the forward model
   F_out = r.genspec_x(x0, degrade_F1=False)
   
   return -0.5*(np.sum((dat-F_out)**2/err**2))
 
-@nb.njit()
-def lnprior(x, f0, pt, dpc, pmax, cld, gauss_prior, p1, p2):
-  # still need to impliment center log stuff
+# @nb.njit()
+def lnprior(r, x_t, x, f0, pt, dpc, pmax):
+  retrieval = r.retrieval
+  scr = r.scr
   
+  # if center-log prior, then we shift index to only consider
+  # non-gas paramters
+  if scr.clr:
+    prior_start = retrieval.ngas
+  else:
+    prior_start = 0
+    
   # sum gausian priors
   lng = 0.0
-  for i in range(len(gauss_prior)):
-    if gauss_prior[i]:
-      lng -= 0.5*(x[i] - p1[i])**2/p2[i]**2
+  for i in range(prior_start,retrieval.nret):
+    if retrieval.gauss_prior[i]:
+      lng -= 0.5*(x[i] - retrieval.p1[i])**2/retrieval.p2[i]**2
   
   # cloud base pressure
-  if cld:
+  if scr.cld:
     pb = pt + dpc
   else:
     pb = -1
   
   # prior limits
   within_explicit_priors = True
-  for i in range(len(x)):
-    if not p1[i] <= x[i] <= p2[i]:
+  for i in range(prior_start,retrieval.nret):
+    if not retrieval.p1[i] <= x[i] <= retrieval.p2[i]:
       within_explicit_priors = False
       break
   
+  if scr.clr:
+    for i in range(retrieval.ngas):
+      if not retrieval.ximin <= x_t[i] <= retrieval.ximax:
+        within_explicit_priors = False
+        break
+    
   within_implicit_priors = True
-  if not np.sum(f0) <= 1.0:
-    within_implicit_priors = False
+  if not scr.clr:
+    if not np.sum(f0) <= 1.0:
+      within_implicit_priors = False
   elif not pb <= pmax:
     within_implicit_priors = False
 
@@ -737,7 +769,7 @@ def lnprior(x, f0, pt, dpc, pmax, cld, gauss_prior, p1, p2):
   if within_priors:
     out = lng
   else:
-    out = - np.inf
+    out = -np.inf
   
   return out
 
@@ -764,8 +796,8 @@ def lnprob(x_t, r, dat, err):
   else:
     pmax = r.scr.pmax
 
-  lp = lnprior(x, f0, pt, dpc, pmax, r.scr.cld, r.retrieval.gauss_prior, r.retrieval.p1, r.retrieval.p2)
+  lp = lnprior(r, x_t, x, f0, pt, dpc, pmax)
   if not np.isfinite(lp):
     return -np.inf
-  return lp + lnlike(x, r, f0, dat, err)
+  return lp + lnlike(r, x, f0, dat, err)
   
