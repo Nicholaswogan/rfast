@@ -1,5 +1,6 @@
 import warnings
 import os
+import ast
 
 import numpy as np
 import numba as nb
@@ -13,6 +14,7 @@ import rfast_opac_routines as opac_rtns
 
 from _rfast_objects import GasParams, RfastInputs, RfastBaseClass
 from _rfast_objects import GENSPEC_INPUTS, RETRIEVABLE_PARAMS
+from _rfast_input import src_to_names
 
 # main Rfast class
 class Rfast(RfastBaseClass):
@@ -67,7 +69,8 @@ class Rfast(RfastBaseClass):
     self.Qc = Qc
     self.threeD = threeD
     
-    self.default_genspec_inputs = \
+    # genspec inputs that are from the input file
+    self.scr_genspec_inputs = \
         [scr.f0, scr.pmax, scr.Rp, scr.Mp, scr.gp, scr.As, scr.pt, scr.dpc, \
          scr.tauc0, scr.fc, scr.t0, scr.a, self.gc, self.wc, self.Qc, scr.alpha, \
          self.gparams.mb, self.gparams.rayb]
@@ -78,6 +81,10 @@ class Rfast(RfastBaseClass):
     
     # prevent new attributes 
     self._freeze()
+
+  ###################################
+  ### Spectra generation routines ###
+  ###################################
 
   def genspec_scr(self, degrade_F1=True, omit_gases = None):
     # we can omit gases
@@ -117,7 +124,7 @@ class Rfast(RfastBaseClass):
 
   def _genspec_scr_hr(self):
     scr = self.scr
-    F1_hr, F2_hr = self._genspec_x_hr(self.default_genspec_inputs, rdtmp=scr.rdgas, rdgas=scr.rdgas)
+    F1_hr, F2_hr = self._genspec_x_hr(self.scr_genspec_inputs, rdtmp=scr.rdgas, rdgas=scr.rdgas)
     return F1_hr, F2_hr
 
   def _genspec_x_hr(self, x, rdtmp=False, rdgas=False):
@@ -291,6 +298,10 @@ class Rfast(RfastBaseClass):
     
     return out
 
+  ########################
+  ### noise generation ###
+  ########################
+
   def noise(self, F2):
     scr = self.scr
     # vectors of lam0 and snr0 to handle wavelength dependence
@@ -331,22 +342,30 @@ class Rfast(RfastBaseClass):
 
     return data, err
 
-  def write_raw_file(self, F1, F2):
-    # write data file
+  ######################
+  ### Saving results ###
+  ######################
+  
+  def write_raw_file(self, F1, F2, filename = None):
+    # write raw file
     names = src_to_names(self.scr.src, is_noise=False)
     data_out = ap.table.Table([self.lam, self.dlam, F1, F2], names=names)
-    ap.io.ascii.write(data_out, self.scr.dirout + self.scr.fns +
-                      '.raw', format='fixed_width', overwrite=True)
+    if filename is None:
+      filename = self.scr.dirout+self.scr.fns+'.raw'
+    ap.io.ascii.write(data_out, filename, format='fixed_width', overwrite=True)
 
-  def write_dat_file(self, F1, F2, data, err):
+  def write_dat_file(self, F1, F2, data, err, filename = None):
     # write data file
     names = src_to_names(self.scr.src, is_noise=True)
     data_out = ap.table.Table(
         [self.lam, self.dlam, F1, F2, data, err], names=names)
-    ap.io.ascii.write(data_out, self.scr.dirout + self.scr.fns +
-                      '.dat', format='fixed_width', overwrite=True)
-                        
-  # retrieval
+    if filename is None:
+      filename = self.scr.dirout+self.scr.fns+'.dat'
+    ap.io.ascii.write(data_out, filename, format='fixed_width', overwrite=True)
+    
+  #################
+  ### Retrieval ###
+  #################
   def initialize_retrieval(self, rpars_txt):
     # Set retrieval parameters
     self.retrieval = RetrieveParams(self.scr, rpars_txt)
@@ -366,21 +385,21 @@ class Rfast(RfastBaseClass):
     
     # compute the initial guess
     # gases
-    gas_guess = np.empty(retrieval.nret_gas)
-    for i in range(retrieval.nret_gas):
-      ind = retrieval.ret_gas_inds[i]
+    gas_guess = np.empty(retrieval.ngas)
+    for i in range(retrieval.ngas):
+      ind = retrieval.gas_inds[i]
       gas_guess[i] = self.scr.f0[ind]
     
     # parameters that are not gases
-    param_guess = np.empty(retrieval.nret_param - 1)
-    for i in range(1,retrieval.nret_param):
-      ind = retrieval.ret_param_inds[i]
-      param_guess[i-1] = self.default_genspec_inputs[ind]
+    param_guess = np.empty(retrieval.ngenspec - 1)
+    for i in range(1,retrieval.ngenspec):
+      ind = retrieval.genspec_inds[i]
+      param_guess[i-1] = self.scr_genspec_inputs[ind]
     
     # put them together, and transform
     guess = np.append(gas_guess, param_guess)
     guess_t = transform_parameters(guess, retrieval.log_space, \
-              self.scr.clr, retrieval.nret_gas, self.scr.fmin)
+              self.scr.clr, retrieval.ngas, self.scr.fmin)
 
     ndim = len(guess_t)
     if h5_file is None:
@@ -434,7 +453,7 @@ class Rfast(RfastBaseClass):
   def monitor_retrievals(self):
     nprocess = len(self.retrieval_processes)
     if nprocess == 0:
-      print('No retrievals are active')
+      print('No retrievals have been started')
     else:
       for process in self.retrieval_processes:
         if process['process'].is_alive():
@@ -459,35 +478,40 @@ class RetrieveParams(RfastBaseClass):
     p2 = np.array(tab['col7'])
       
     # 3 relevent numbers
-    # number of gases being retrieved (nret_gas)
+    # number of gases being retrieved (ngas)
     # number of total parameters being retrieved (nret)
-    # nret - nret_gas + 1 = nret_param
-    log_space = [] # nret
+    # nret - ngas + 1 = ngenspec
+    
+    # nret
+    param_names = []
+    param_labels = []
+    
+    log_space = [] 
     gauss_prior = []
     p1_n = []
     p2_n = []
-    param_name_inds = {}
     
-    # nret_gas
-    ret_gas_names = []
-    ret_gas_inds = []
+    # ngas
+    gas_names = []
+    gas_inds = []
     
-    # nret_param
-    ret_param_names = [] 
-    ret_param_inds = []
+    # ngenspec
+    genspec_names = [] 
+    genspec_inds = []
 
     # number of retrieved, logged, and gas parameters
     # check that retrieved gases are active; check for retrieved Mp and gp (a big no-no!)
     nret  = 0
     nlog  = 0
-    nret_gas  = 0
+    ngas  = 0
     nlgas = 0
     mf    = False
     gf    = False
     for i in range(par.size):
       if (ret[i].lower() == 'y'):
         
-        param_name_inds[par[i].lower()] = nret
+        param_names.append(par[i].lower())
+        param_labels.append(ast.literal_eval(lab[i]))
   
         nret = nret + 1
         if (par[i] == 'Mp'):
@@ -514,14 +538,14 @@ class RetrieveParams(RfastBaseClass):
         p2_n.append(p2[i])
       
         if (par[i][0] == 'f' and par[i] != 'fc'):
-          ret_gas_names.append(par[i][1:].lower())
+          gas_names.append(par[i][1:].lower())
           tmp = np.where(scr.species_r==par[i][1:].lower())[0]
           if tmp.size != 1:
             raise Exception('Gas "'+par[i][1:].lower()+'" can not be retrieved')
           else:
-            ret_gas_inds.append(tmp[0])
+            gas_inds.append(tmp[0])
 
-          nret_gas = nret_gas + 1
+          ngas = ngas + 1
           if (log[i].lower() == 'log'):
             nlgas = nlgas + 1
           if (len(scr.species_r) <= 1):
@@ -532,21 +556,21 @@ class RetrieveParams(RfastBaseClass):
               raise Exception("rfast warning | major | requested retrieved gas is not radiatively active; ",par[i][1:].lower())
         else:
           # not a gas
-          ret_param_names.append(par[i])
+          genspec_names.append(par[i])
           tmp = np.where(GENSPEC_INPUTS==par[i])[0]
           tmp1 = np.where(RETRIEVABLE_PARAMS==par[i])[0]
           if tmp1.size != 1:
             raise Exception('Parameter "'+par[i]+'" can not be retrieved')
           else:
-            ret_param_inds.append(tmp[0])
+            genspec_inds.append(tmp[0])
     
     # we add mixing ratios if gases are retrieved
-    if nret_gas > 0:
-      ret_param_names.insert(0,"f0")
-      ret_param_inds.insert(0,0)
-      nret_param = nret - nret_gas + 1
+    if ngas > 0:
+      genspec_names.insert(0,"f0")
+      genspec_inds.insert(0,0)
+      ngenspec = nret - ngas + 1
     else:
-      nret_param = nret
+      ngenspec = nret
     
     # warning if no parameters are retrieved
     if (nret == 0):
@@ -557,62 +581,66 @@ class RetrieveParams(RfastBaseClass):
       warnings.warn("rfast warning | major | cannot retrieve on both Mp and gp")
 
     # warning if clr retrieval is requested but no gases are retrieved
-    if (scr.clr and nret_gas == 0):
+    if (scr.clr and ngas == 0):
       warnings.warn("rfast warning | minor | center-log retrieval requested but no retrieved gases")
 
     # warning that clr treatment assumes gases retrieved in log space
-    if (scr.clr and nret_gas != nlgas):
+    if (scr.clr and ngas != nlgas):
       warnings.warn("rfast warning | minor | requested center-log retrieval transforms all gas constraints to log-space")
 
     # warning if clr retrieval and number of included gases is smaller than retrieved gases
-    if (scr.clr and nret_gas < len(scr.f0)):
+    if (scr.clr and ngas < len(scr.f0)):
       raise Exception("rfast warning | major | center-log retrieval functions only if len(f0) equals number of retrieved gases")
     
     # set data attributes
     
-    # actual  parameters
+    # actual parameters that are being retrieved
     self.nret = nret
-    self.param_name_inds = param_name_inds
+    self.param_names = np.array(param_names,str)
+    self.param_labels = np.array(param_labels,str)
     
+    # Determine if certain cloud parameters are being retrieved.
+    # If they are, then we will save their index relative to self.param_names
+    self.retrieving_pt = 'pt' in param_names
+    if self.retrieving_pt:
+      self.pt_ind = param_names.index('pt')
+    else:
+      self.pt_ind = None
+    
+    self.retrieving_dpc = 'dpc' in param_names
+    if self.retrieving_dpc:
+      self.dpc_ind = param_names.index('dpc')
+    else:
+      self.dpc_ind = None
+      
+    self.retrieving_pmax = 'pmax' in param_names
+    if self.retrieving_pmax:
+      self.pmax_ind = param_names.index('pmax')
+    else:
+      self.pmax_ind = None
+    
+    # length nret
     self.gauss_prior = np.array(gauss_prior)
     self.log_space = np.array(log_space)
     self.p1 = np.array(p1_n)
     self.p2 = np.array(p2_n)
     
-    # gases making up f0
-    self.nret_gas = nret_gas
-    self.ret_gas_names = np.array(ret_gas_names)
-    self.ret_gas_inds = np.array(ret_gas_inds)
+    # Gases
+    self.ngas = ngas
+    self.gas_names = np.array(gas_names,str)
+    self.gas_inds = np.array(gas_inds) # indexs correspond to r.scr.f0
     
     # genspec inputs
-    self.nret_param = nret_param
-    self.ret_param_names = np.array(ret_param_names)
-    self.ret_param_inds = np.array(ret_param_inds)
+    self.ngenspec = ngenspec
+    self.genspec_names = np.array(genspec_names,str)
+    self.genspec_inds = np.array(genspec_inds) # indexs correspond to r.scr_genspec_inputs
     
     # no new attributes
     self._freeze()
-
-# Utility functions
-def src_to_names(src, is_noise=False):
-  if (src == 'diff' or src == 'cmbn'):
-    names = ['wavelength (um)', 'd wavelength (um)', 'albedo', 'flux ratio']
-  elif (src == 'thrm'):
-    names = ['wavelength (um)', 'd wavelength (um)',
-             'Tb (K)', 'flux (W/m**2/um)']
-  elif (src == 'scnd'):
-    names = ['wavelength (um)', 'd wavelength (um)', 'Tb (K)', 'flux ratio']
-  elif (src == 'trns'):
-    names = ['wavelength (um)', 'd wavelength (um)',
-             'zeff (m)', 'transit depth']
-  elif (src == 'phas'):
-    names = ['wavelength (um)', 'd wavelength (um)', 'reflect', 'flux ratio']
-
-  if is_noise:
-    names = names + ['data', 'uncertainty']
-
-  return names
   
-# MCMC function things
+######################
+### MCMC functions ###
+######################
 @nb.njit()
 def transform_parameters(x, log_space, clr, ng, fmin):
   x_t = np.empty(x.size)
@@ -660,14 +688,14 @@ def lnlike(x, r, f0, dat, err):
   scr = r.scr
 
   # ngas_params
-  x0_params = [f0]+list(x[retrieval.nret_gas:])
+  x0_params = [f0]+list(x[retrieval.ngas:])
   
   # we must build up inputs to genspec. Big list
   # x0 = [f0,pmax,Rp,Mp,gp,As,pt,dpc,tauc0,fc,t0,a,gc,wc,Qc,alpha,mb,rayb]
-  x0 = r.default_genspec_inputs.copy()
+  x0 = r.scr_genspec_inputs.copy()
   
   for i in range(len(x0_params)):
-    ind = retrieval.ret_param_inds[i]
+    ind = retrieval.genspec_inds[i]
     x0[ind] = x0_params[i]
   
   # call the forward model
@@ -709,30 +737,30 @@ def lnprior(x, f0, pt, dpc, pmax, cld, gauss_prior, p1, p2):
   if within_priors:
     out = lng
   else:
-    out = -np.inf
+    out = - np.inf
   
   return out
 
 def lnprob(x_t, r, dat, err):
-  x = untransform_parameters(x_t, r.retrieval.log_space, r.scr.clr, r.retrieval.nret_gas)
+  x = untransform_parameters(x_t, r.retrieval.log_space, r.scr.clr, r.retrieval.ngas)
   
   # Make a copy of mixing ratios in the input file.
   # replace elements of array with retrieved gases
   f0 = r.scr.f0.copy()
-  f_gases = x[:r.retrieval.nret_gas]
-  f0[r.retrieval.ret_gas_inds] = f_gases
+  f_gases = x[:r.retrieval.ngas]
+  f0[r.retrieval.gas_inds] = f_gases
   # we also need to grab some cloud parameters,
   # but only if they are actually being retrieved
-  if 'pt' in r.retrieval.param_name_inds:
-    pt = x[r.retrieval.param_name_inds['pt']]
+  if r.retrieval.retrieving_pt:
+    pt = x[r.retrieval.pt_ind]
   else:
     pt = r.scr.pt
-  if 'dpc' in r.retrieval.param_name_inds:
-    dpc = x[r.retrieval.param_name_inds['dpc']]
+  if r.retrieval.retrieving_dpc:
+    dpc = x[r.retrieval.dpc_ind]
   else:
     dpc = r.scr.dpc
-  if 'pmax' in r.retrieval.param_name_inds:
-    pmax = x[r.retrieval.param_name_inds['pmax']]
+  if r.retrieval.retrieving_pmax:
+    pmax = x[r.retrieval.pmax_ind]
   else:
     pmax = r.scr.pmax
 

@@ -265,4 +265,24 @@ REQUIRED_KEYS = \
   "restart": [bool],
 }
 
+# Utility functions for writing output
+def src_to_names(src, is_noise=False):
+  if (src == 'diff' or src == 'cmbn'):
+    names = ['wavelength (um)', 'd wavelength (um)', 'albedo', 'flux ratio']
+  elif (src == 'thrm'):
+    names = ['wavelength (um)', 'd wavelength (um)',
+             'Tb (K)', 'flux (W/m**2/um)']
+  elif (src == 'scnd'):
+    names = ['wavelength (um)', 'd wavelength (um)', 'Tb (K)', 'flux ratio']
+  elif (src == 'trns'):
+    names = ['wavelength (um)', 'd wavelength (um)',
+             'zeff (m)', 'transit depth']
+  elif (src == 'phas'):
+    names = ['wavelength (um)', 'd wavelength (um)', 'reflect', 'flux ratio']
+
+  if is_noise:
+    names = names + ['data', 'uncertainty']
+
+  return names
+
 
