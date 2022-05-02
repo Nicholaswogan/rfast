@@ -649,7 +649,7 @@ class RetrieveParams(RfastBaseClass):
     
     # no new attributes
     self._freeze()
-  
+
 ######################
 ### MCMC functions ###
 ######################
