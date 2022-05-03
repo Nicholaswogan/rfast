@@ -5,9 +5,9 @@ import numba as nb
 from scipy import interpolate
 from astropy.io import ascii
 
-from ._opac_routines import opacities_read
-from ._opac_routines import cia_read
-from ._opac_routines import rayleigh
+from .opac_routines import opacities_read
+from .opac_routines import cia_read
+from .opac_routines import rayleigh
 
 # misc routines for speeding up code
 

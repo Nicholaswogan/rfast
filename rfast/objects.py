@@ -1,17 +1,15 @@
 import os
 import numpy as np
 
-from . import _routines as rtns
-from . import _atm_routines as atm_rtns
-from ._input import read_yaml_input
+from . import routines as rtns
+from . import atm_routines as atm_rtns
+from .input import read_yaml_input
 
 THISFILEDIR = os.path.dirname(os.path.realpath(__file__))
 
 # Rfast base data class. The idea is to
 # prevent the addition of attributes after
 # initialization. This prevents bugs.
-
-
 class RfastBaseClass:
     __isfrozen = False
 
@@ -22,7 +20,6 @@ class RfastBaseClass:
 
     def _freeze(self):
         self.__isfrozen = True
-
 
 class GasParams(RfastBaseClass):
     def __init__(self, bg):

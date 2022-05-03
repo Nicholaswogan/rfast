@@ -8,13 +8,13 @@ import astropy as ap
 import emcee
 from multiprocess import Process
 
-from . import _routines as rtns
-from . import _atm_routines as atm_rtns
-from . import _opac_routines as opac_rtns
+from . import routines as rtns
+from . import atm_routines as atm_rtns
+from . import opac_routines as opac_rtns
 
-from ._objects import GasParams, RfastInputs, RfastBaseClass
-from ._objects import GENSPEC_INPUTS, RETRIEVABLE_PARAMS
-from ._input import src_to_names
+from .objects import GasParams, RfastInputs, RfastBaseClass
+from .objects import GENSPEC_INPUTS, RETRIEVABLE_PARAMS
+from .input import src_to_names
 
 # main Rfast class
 

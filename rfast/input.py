@@ -190,8 +190,6 @@ def read_yaml_input(scr_file):
 
 # helper function to convert float, int or list
 # to a 1-D np.ndarray
-
-
 def to_1d_ndarray(a, dtype):
     if isinstance(a, int) or isinstance(a, float):
         b = np.array([a], dtype=dtype)
