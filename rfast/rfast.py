@@ -4,6 +4,8 @@ import ast
 
 import numpy as np
 import numba as nb
+from scipy import stats
+import dynesty
 import astropy as ap
 import emcee
 from multiprocess import Process
@@ -327,7 +329,7 @@ class Rfast(RfastBaseClass):
                 else:
                     lam0i = scr.lam0[i]
                 if (scr.ntype != 'cppm'):
-                    erri = noise(lam0i, scr.snr0[i], self.lam,
+                    erri = rtns.noise(lam0i, scr.snr0[i], self.lam,
                                  self.dlam, F2, scr.Ts, scr.ntype)
                     err[ilam] = erri[ilam]
                 else:
@@ -404,8 +406,7 @@ class Rfast(RfastBaseClass):
         guess = np.append(gas_guess, param_guess)
         guess_t = transform_parameters(guess, retrieval.log_space,
                                        self.scr.clr, retrieval.ngas, self.scr.fmin)
-
-        ndim = retrieval.nret
+                                       
         if h5_file is None:
             h5_filename = self.scr.dirout + self.scr.fnr + '.h5'
         else:
@@ -419,10 +420,10 @@ class Rfast(RfastBaseClass):
                         "rfast warning | major | h5 file already exists")
 
             backend = emcee.backends.HDFBackend(h5_filename)
-            backend.reset(self.scr.nwalkers, ndim)
+            backend.reset(self.scr.nwalkers, retrieval.nret)
             # initialize walkers as a cloud around guess
             pos = [guess_t + 1e-4 *
-                   np.random.randn(ndim) for i in range(self.scr.nwalkers)]
+                   np.random.randn(retrieval.nret) for i in range(self.scr.nwalkers)]
         else:
             if not os.path.isfile(h5_filename):
                 raise Exception(
@@ -437,12 +438,13 @@ class Rfast(RfastBaseClass):
         else:
             nprocess = int(self.scr.nprocess)
 
-        return ndim, backend, pos
+        return backend, pos
 
     def _retrieve(self, dat, err, progress, overwrite, h5_file):
-        ndim, backend, pos = self.prepare_retrieval(
+        backend, pos = self.prepare_retrieval(
             dat, err, overwrite=overwrite, h5_file=h5_file)
         # arguments
+        ndim = self.retrieval.nret # dimension of retrieval
         args = (self, dat, err,)
         sampler = emcee.EnsembleSampler(
             self.scr.nwalkers, ndim, lnprob, backend=backend, args=args)
@@ -471,6 +473,30 @@ class Rfast(RfastBaseClass):
                 else:
                     tmp = "Completed."
                 print(process['h5_file'] + ': ', tmp)
+                
+                
+    def prepare_nested_retrieval(self, dat, err, overwrite=False, h5_file=None):
+        retrieval = self.retrieval
+        # check for initialization
+        if retrieval is None:
+            raise Exception(
+                "You must first intialize a retrieval before retrieving")
+
+        # check input dat and var
+        if not isinstance(dat, np.ndarray) or not isinstance(err, np.ndarray):
+            raise ValueError("Input dat and var must be numpy ndarrays")
+
+        if dat.size != self.lam.size or err.size != self.lam.size:
+            raise ValueError("Input dat and var have the wrong size")
+
+        logl_args = (self, dat, err,)
+        ptform_args = (self,)
+        sampler = dynesty.DynamicNestedSampler(lnlike_nest, prior_transform, retrieval.nret, \
+                                        logl_args=logl_args, ptform_args=ptform_args)
+        return sampler
+        
+        
+    
 
 
 class RetrieveParams(RfastBaseClass):
@@ -748,8 +774,6 @@ def lnlike(r, x, f0, dat, err):
 
     return -0.5 * (np.sum((dat - F_out)**2 / err**2))
 
-# @nb.njit()
-
 
 def lnprior(r, x_t, x, f0, pt, dpc, pmax):
     retrieval = r.retrieval
@@ -766,7 +790,10 @@ def lnprior(r, x_t, x, f0, pt, dpc, pmax):
     lng = 0.0
     for i in range(prior_start, retrieval.nret):
         if retrieval.gauss_prior[i]:
-            lng -= 0.5 * (x[i] - retrieval.p1[i])**2 / retrieval.p2[i]**2
+            # -(1/2)*((x-mu)/sigma)**2
+            # mu == p1 is center of distribution
+            # sigma == p2 is the standard deviation
+            lng += - 0.5 * (x[i] - retrieval.p1[i])**2 / retrieval.p2[i]**2
 
     # cloud base pressure
     if scr.cld:
@@ -832,3 +859,90 @@ def lnprob(x_t, r, dat, err):
     if not np.isfinite(lp):
         return -np.inf
     return lp + lnlike(r, x, f0, dat, err)
+
+def lnlike_nest(x_t, r, dat, err):
+    retrieval = r.retrieval
+    scr = r.scr
+    
+    x = untransform_parameters(
+        x_t, retrieval.log_space, scr.clr, retrieval.ngas)
+
+    # Make a copy of mixing ratios in the input file.
+    # replace elements of array with retrieved gases
+    f0 = scr.f0.copy()
+    f_gases = x[:r.retrieval.ngas]
+    f0[retrieval.gas_inds] = f_gases
+    # we also need to grab some cloud parameters,
+    # but only if they are actually being retrieved
+    if retrieval.retrieving_pt:
+        pt = x[r.retrieval.pt_ind]
+    else:
+        pt = r.scr.pt
+    if retrieval.retrieving_dpc:
+        dpc = x[r.retrieval.dpc_ind]
+    else:
+        dpc = r.scr.dpc
+    if retrieval.retrieving_pmax:
+        pmax = x[r.retrieval.pmax_ind]
+    else:
+        pmax = r.scr.pmax
+    
+    # enforce implicit priors here.
+    within_implicit_priors = True
+    if not np.sum(f0) <= 1.0:
+        within_implicit_priors = False
+    if scr.cld:
+        pb = pt + dpc
+        if not pb <= pmax:
+            within_implicit_priors = False
+        
+    if within_implicit_priors:
+        out = lnlike(r, x, f0, dat, err)
+    else:
+        out = -1.0e100
+    
+    return out
+
+# functions for converting a uniform distribution
+# to various different distributions
+def quantile_to_gauss(quantile, mu, sigma):
+    return stats.norm.ppf(quantile,loc=mu,scale=sigma)
+    
+def quantile_to_uniform(quantile, lower_bound, upper_bound):
+    return quantile*(upper_bound - lower_bound) + lower_bound
+
+def prior_transform(u, r):
+    retrieval = r.retrieval
+    scr = r.scr
+    
+    # initialize output array
+    x = np.empty(u.size)
+    
+    # Transform all retrieved parameters
+    for i in range(retrieval.nret):
+        
+        # priors are always saved in linear space (p1, p2)
+        # so we must transform them to log10 space if
+        # necessary
+        if retrieval.gauss_prior[i]:
+            if retrieval.log_space[i]:
+                mu = np.log10(retrieval.p1[i])
+                sigma = np.log10(retrieval.p2[i])
+            else:
+                mu = retrieval.p1[i]
+                sigma = retrieval.p2[i]
+            
+            x[i] = quantile_to_gauss(u[i], mu, sigma)
+        else:
+            if retrieval.log_space[i]:
+                lower_bound = np.log10(retrieval.p1[i])
+                upper_bound = np.log10(retrieval.p2[i])
+            else:
+                lower_bound = retrieval.p1[i]
+                upper_bound = retrieval.p2[i]
+                
+            x[i] = quantile_to_uniform(u[i], lower_bound, upper_bound)
+            
+    # We enforce sum(f0) <= 1 and the cloud base stuff in the log-likelihood function
+                
+    return x

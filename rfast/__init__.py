@@ -1,1 +1,1 @@
-from ._rfast import Rfast, lnprob
+from .rfast import Rfast, lnprob

@@ -1,4 +1,4 @@
-  parameter           label            retrieved?    lin/log     gauss/flat    prior 1    prior 2
+  parameter           label                retrieved?   lin/log    gauss/flat    prior 1    prior 2
     fAr      | r"$f_\mathrm{Ar}$"       |     n       |   log   |       f      |   1e-10   |   1e+0
     fN2      | r"$f_\mathrm{N2}$"       |     y       |   log   |       f      |   1e-10   |   1e+0
     fO2      | r"$f_\mathrm{O2}$"       |     y       |   log   |       f      |   1e-10   |   1e+0
