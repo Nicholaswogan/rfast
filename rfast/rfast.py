@@ -1,15 +1,13 @@
 import warnings
 import os
-from multiprocessing import Pool
 import pickle
 
 import numpy as np
 import numba as nb
 from scipy import stats
-import dynesty
 import astropy as ap
 import emcee
-from multiprocess import Process
+import dynesty
 
 from . import routines as rtns
 from . import atm_routines as atm_rtns

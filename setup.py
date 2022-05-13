@@ -9,7 +9,7 @@ setup(
     name="rfast",
     packages=['rfast'],
     python_requires='>=3.7',
-    version="2.7.2",
+    version="2.7.3",
     license="MIT",
     install_requires=['numpy>=1.21','numba','scipy','ruamel.yaml','astropy>=5.0','emcee>=3.1','dynesty'],
     author='Tyler Robinson',
