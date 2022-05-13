@@ -82,18 +82,72 @@ class Rfast(RfastBaseClass):
         self.dat = None
         self.err = None
         self.retrieval_processes = []
+        
+        # saving
+        self._species_r_save = None
+        self._f0_save = None
+        self._colr_save = None
+        self._scr_genspec_inputs_save = None
 
         # prevent new attributes
         self._freeze()
+        
+    #################
+    ### Utilities ###
+    #################
+    
+    def remove_gas(self, gas, remove_from_retrieval = True):
+        
+        if gas not in list(self.scr.species_r):
+            raise Exception('gas "'+gas+'" can not be removed.')
+            
+        if remove_from_retrieval:
+            self.retrieval._set_attributes(self.scr, gas_to_omit = gas)
+        
+        inds = np.where(gas != self.scr.species_r)[0]
+        species_r_n = self.scr.species_r[inds]
+        f0_n = self.scr.f0[inds]
+        colr_n = self.scr.colr[inds]
+        
+        # save old stuff
+        self._species_r_save = self.scr.species_r.copy()
+        self._f0_save = self.scr.f0.copy()
+        self._colr_save = self.scr.colr.copy()
+        self._scr_genspec_inputs_save = self.scr_genspec_inputs.copy()
+        
+        # replace with new stuff
+        self.scr.species_r = species_r_n
+        self.scr.f0 = f0_n
+        self.scr.colr = colr_n
+        self.scr_genspec_inputs[0] = f0_n
+                
+    def undo_remove_gas(self, undo_remove_from_retrieval = True):
+        
+        if self._species_r_save is None:
+            raise Exception("can not undo remove_gas because it has not been called") 
+        
+        self.scr.species_r = self._species_r_save
+        self.scr.f0 = self._f0_save
+        self.scr.colr = self._colr_save
+        self.scr_genspec_inputs = self._scr_genspec_inputs_save
+        
+        self._species_r_save = None
+        self._f0_save = None
+        self._colr_save = None
+        self._scr_genspec_inputs_save = None
+        
+        if undo_remove_from_retrieval:
+            self.retrieval._set_attributes(self.scr)   
 
     ###################################
     ### Spectra generation routines ###
     ###################################
 
-    def genspec_scr(self, degrade_F1=True, omit_gases=None):
+    def genspec_scr(self, degrade_F1=True, omit_gas=None):
+        
         # we can omit gases
-        if omit_gases is not None:
-            return self._genspec_scr_omit_gases(degrade_F1, omit_gases)
+        if omit_gas is not None:
+            self.remove_gas(omit_gas, remove_from_retrieval = False)
 
         F1_hr, F2_hr = self._genspec_scr_hr()
         F2 = rtns.kernel_convol(self.kern, F2_hr)
@@ -102,6 +156,9 @@ class Rfast(RfastBaseClass):
             out = (F1, F2)
         else:
             out = F2
+            
+        if omit_gas is not None:
+            self.undo_remove_gas(undo_remove_from_retrieval = False)
 
         return out
 
@@ -238,114 +295,6 @@ class Rfast(RfastBaseClass):
             )
 
         return F1_hr, F2_hr
-
-    def _genspec_scr_omit_gases(self, degrade_F1, omit_gases):
-        """Computes a spectrum but omits a gas"""
-
-        # Check type
-        if not isinstance(omit_gases, list):
-            raise Exception('"omit_gases" must be a list')
-        # Check for duplicates
-        omit_gases_s = set(omit_gases)
-        if len(omit_gases_s) != len(omit_gases):
-            raise Exception('"omit_gases" contains duplicates.')
-        # Check that it is a subset
-        if not (omit_gases_s.issubset(set(self.scr.species_l))
-                or omit_gases_s.issubset(set(self.scr.species_c))):
-            raise Exception('"omit_gases" contains elements which' +
-                            ' are not in the list of radiatively active species')
-
-        species_l = []
-        for i in range(len(self.scr.species_l)):
-            if self.scr.species_l[i] not in omit_gases:
-                species_l.append(self.scr.species_l[i])
-        species_c = []
-        for i in range(len(self.scr.species_c)):
-            if self.scr.species_c[i] not in omit_gases:
-                species_c.append(self.scr.species_c[i])
-        species_l = np.array(species_l)
-        species_c = np.array(species_c)
-
-        # Save things that will change
-        species_l_s = self.scr.species_l.copy()
-        species_c_s = self.scr.species_c.copy()
-        sigma_interp_s = self.sigma_interp
-        cia_interp_s = self.cia_interp
-        ncia_s = self.ncia.copy()
-        ciaid_s = self.ciaid.copy()
-        kern_s = self.kern.copy()
-
-        # Overwrite with new stuff
-        self.scr.species_l = species_l
-        self.scr.species_c = species_c
-        self.sigma_interp, self.cia_interp, \
-            self.ncia, self.ciaid, self.kern = \
-            rtns.init(self.lam, self.dlam, self.lam_hr, species_l,
-                      species_c, self.scr.opdir, self.scr.pf, self.scr.tf, mode=self.mode)
-
-        # compute spectrum
-        F1_hr, F2_hr = self._genspec_scr_hr()
-        F2 = rtns.kernel_convol(self.kern, F2_hr)
-        if degrade_F1:
-            F1 = rtns.kernel_convol(self.kern, F1_hr)
-            out = (F1, F2)
-        else:
-            out = F2
-
-        # return variables to original state
-        self.scr.species_l = species_l_s
-        self.scr.species_c = species_c_s
-        self.sigma_interp = sigma_interp_s
-        self.cia_interp = cia_interp_s
-        self.ncia = ncia_s
-        self.ciaid = ciaid_s
-        self.kern = kern_s
-
-        return out
-
-    ########################
-    ### noise generation ###
-    ########################
-
-    def noise(self, F2):
-        scr = self.scr
-        # vectors of lam0 and snr0 to handle wavelength dependence
-        lam0v = np.zeros(len(self.lam))
-        snr0v = np.zeros(len(self.lam))
-
-        # snr0 constant w/wavelength case
-        if(len(scr.snr0) == 1):
-            if (scr.ntype != 'cppm'):
-                err = rtns.noise(scr.lam0, scr.snr0, self.lam,
-                                 self.dlam, F2, scr.Ts, scr.ntype)
-            else:
-                err = np.zeros(F2.shape[0])
-                err[:] = 1 / snr0v
-        else:  # otherwise snr0 is bandpass dependent
-            err = np.zeros(len(self.lam))
-            for i in range(len(scr.snr0)):
-                ilam = np.where(np.logical_and(
-                    self.lam >= scr.lams[i], self.lam <= scr.laml[i]))
-                if (len(scr.lam0) == 1):  # lam0 may be bandpass dependent
-                    lam0i = scr.lam0
-                else:
-                    lam0i = scr.lam0[i]
-                if (scr.ntype != 'cppm'):
-                    erri = rtns.noise(lam0i, scr.snr0[i], self.lam,
-                                 self.dlam, F2, scr.Ts, scr.ntype)
-                    err[ilam] = erri[ilam]
-                else:
-                    err[ilam] = 1 / scr.snr0[i]
-
-        # generate faux spectrum, with random noise if requested
-        data = np.copy(F2)
-        if scr.rnd:
-            for k in range(len(self.lam)):
-                data[k] = np.random.normal(F2[k], err[k], 1)
-                if data[k] < 0:
-                    data[k] = 0.
-
-        return data, err
 
     ######################
     ### Saving results ###

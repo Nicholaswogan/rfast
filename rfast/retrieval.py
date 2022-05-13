@@ -17,7 +17,23 @@ class RetrieveParams(RfastBaseClass):
 
     def __init__(self, scr, rpars_txt):
         # read input table
-        tab = ap.io.ascii.read(rpars_txt, data_start=1, delimiter='|')
+        self.tab = ap.io.ascii.read(rpars_txt, data_start=1, delimiter='|')
+        self._set_attributes(scr)
+        # no new attributes
+        self._freeze()
+
+    def _set_attributes(self, scr, gas_to_omit = None):
+        
+        if gas_to_omit is not None:
+            # check gas is valid
+            if gas_to_omit not in list(scr.species_r):
+                raise Exception('gas "'+gas+'" can be be removed.')
+            
+            if gas_to_omit not in list(self.gas_names):
+                raise Exception('gas "'+gas+'" can be be removed.')
+        
+        tab = self.tab
+        
         par = np.array(tab['col1'])
         lab = np.array(tab['col2'])
         ret = np.array(tab['col3'])
@@ -57,7 +73,12 @@ class RetrieveParams(RfastBaseClass):
         mf = False
         gf = False
         for i in range(par.size):
-            if (ret[i].lower() == 'y'):
+            if (par[i][0] == 'f' and par[i] != 'fc'):
+                gas_name = par[i][1:].lower()
+            else:
+                gas_name = ""
+            
+            if (ret[i].lower() == 'y' and gas_name != gas_to_omit):
 
                 param_names.append(par[i].lower())
                 param_labels.append(ast.literal_eval(lab[i]))
@@ -209,9 +230,8 @@ class RetrieveParams(RfastBaseClass):
                                          np.log((1. - scr.fmin) / (n - 1.)))
             self.ximax = (n - 1) / n * \
                 (np.log(1 - n * scr.fmin) - np.log(scr.fmin))
-
-        # no new attributes
-        self._freeze()
+        
+        
 
 ###############################
 ### Transforming parameters ###

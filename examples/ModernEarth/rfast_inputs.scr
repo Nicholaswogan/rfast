@@ -15,13 +15,13 @@ src       = diff     # source type: 'diff','thrm','scnd','cmbn','trns','phas'
 Nlev      = 50       # number of atmospheric levels
 pmin      = 1.00e0   # top of atmosphere pressure (Pa)
 pmax      = 1.01e5   # bottom of atmosphere pressure (Pa)
-bg        = ar       # background gas ('ar','ch4','co2','h2','he','n2','o2')
-species_r = n2,o2,h2o,o3,co2,ch4                   # radiatively-active species; from: ar,n2,o2,h2o,o3,co2,ch4,h2,he,n2o,co
-f0        = 0.78,0.21,3.e-3,7.e-7,4.e-4,2.e-6      # vmrs for active gases; **same order as species_r**
+bg        = n2       # background gas ('ar','ch4','co2','h2','he','n2','o2')
+species_r = o2,h2o,o3,co2,ch4                   # radiatively-active species; from: ar,n2,o2,h2o,o3,co2,ch4,h2,he,n2o,co
+f0        = 0.21,3.e-3,7.e-7,4.e-4,2.e-6      # vmrs for active gases; **same order as species_r**
 rdgas     = False            # read gas volume mixing ratio profiles from file?
 fnatm     = icrccm_62_v2.atm # filename for reading in gas vmr profiles
 skpatm    = 11               # header lines to skip in atm file
-colr      = 10,9,3,5,4,8,6,7 # columns for active gases; overrides fr parameter; **same order as species_r**
+colr      = 9,3,5,4,8,6,7 # columns for active gases; overrides fr parameter; **same order as species_r**
 colpr     = 1                # column in fnatm for pressure
 psclr     = 1.               # parameter to multiply fnatm pressure by to scale to Pa
 imix      = 0                # 0 -> mixing ratios are vmrs | 1 -> mixing ratios are mmrs
@@ -39,7 +39,7 @@ psclt     = 1.       # parameter to multiply fntmp pressure by to scale to Pa
 # define line and cia absorbers
 #
 species_l = ch4,co2,h2o,o2,o3,n2o,co # line absorber species to include: ch4,co2,h2o,o2,o3,n2o,co
-species_c = n2,o2                    # cia cases to include: co2,h2,n2,o2
+species_c = n2,o2,co2                    # cia cases to include: co2,h2,n2,o2
 #
 # wavelength grid parameters
 #

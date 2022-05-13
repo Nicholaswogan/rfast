@@ -1,6 +1,6 @@
   parameter           label                retrieved?   lin/log    gauss/flat    prior 1    prior 2
     fAr      | r"$f_\mathrm{Ar}$"       |     n       |   log   |       f      |   1e-10   |   1e+0
-    fN2      | r"$f_\mathrm{N2}$"       |     y       |   log   |       f      |   1e-10   |   1e+0
+    fN2      | r"$f_\mathrm{N2}$"       |     n       |   log   |       f      |   1e-10   |   1e+0
     fO2      | r"$f_\mathrm{O2}$"       |     y       |   log   |       f      |   1e-10   |   1e+0
     fH2O     | r"$f_\mathrm{H2O}$"      |     y       |   log   |       f      |   1e-10   |   1e+0
     fCO2     | r"$f_\mathrm{CO2}$"      |     y       |   log   |       f      |   1e-10   |   1e+0
