@@ -26,9 +26,6 @@ class RetrieveParams(RfastBaseClass):
         
         if gas_to_omit is not None:
             # check gas is valid
-            if gas_to_omit not in list(scr.species_r):
-                raise Exception('gas "'+gas+'" can be be removed.')
-            
             if gas_to_omit not in list(self.gas_names):
                 raise Exception('gas "'+gas+'" can be be removed.')
         

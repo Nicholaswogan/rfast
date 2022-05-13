@@ -100,9 +100,6 @@ class Rfast(RfastBaseClass):
         
         if gas not in list(self.scr.species_r):
             raise Exception('gas "'+gas+'" can not be removed.')
-            
-        if remove_from_retrieval:
-            self.retrieval._set_attributes(self.scr, gas_to_omit = gas)
         
         inds = np.where(gas != self.scr.species_r)[0]
         species_r_n = self.scr.species_r[inds]
@@ -120,6 +117,13 @@ class Rfast(RfastBaseClass):
         self.scr.f0 = f0_n
         self.scr.colr = colr_n
         self.scr_genspec_inputs[0] = f0_n
+        
+        if remove_from_retrieval:
+            try:
+                self.retrieval._set_attributes(self.scr, gas_to_omit = gas)
+            except Exception as e:
+                self.undo_remove_gas(undo_remove_from_retrieval = False)
+                raise Exception(e)
                 
     def undo_remove_gas(self, undo_remove_from_retrieval = True):
         
