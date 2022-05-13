@@ -295,6 +295,50 @@ class Rfast(RfastBaseClass):
             )
 
         return F1_hr, F2_hr
+        
+    ########################
+    ### noise generation ###
+    ########################
+
+    def noise(self, F2):
+        scr = self.scr
+        # vectors of lam0 and snr0 to handle wavelength dependence
+        lam0v = np.zeros(len(self.lam))
+        snr0v = np.zeros(len(self.lam))
+
+        # snr0 constant w/wavelength case
+        if(len(scr.snr0) == 1):
+            if (scr.ntype != 'cppm'):
+                err = rtns.noise(scr.lam0, scr.snr0, self.lam,
+                                 self.dlam, F2, scr.Ts, scr.ntype)
+            else:
+                err = np.zeros(F2.shape[0])
+                err[:] = 1 / snr0v
+        else:  # otherwise snr0 is bandpass dependent
+            err = np.zeros(len(self.lam))
+            for i in range(len(scr.snr0)):
+                ilam = np.where(np.logical_and(
+                    self.lam >= scr.lams[i], self.lam <= scr.laml[i]))
+                if (len(scr.lam0) == 1):  # lam0 may be bandpass dependent
+                    lam0i = scr.lam0
+                else:
+                    lam0i = scr.lam0[i]
+                if (scr.ntype != 'cppm'):
+                    erri = rtns.noise(lam0i, scr.snr0[i], self.lam,
+                                 self.dlam, F2, scr.Ts, scr.ntype)
+                    err[ilam] = erri[ilam]
+                else:
+                    err[ilam] = 1 / scr.snr0[i]
+
+        # generate faux spectrum, with random noise if requested
+        data = np.copy(F2)
+        if scr.rnd:
+            for k in range(len(self.lam)):
+                data[k] = np.random.normal(F2[k], err[k], 1)
+                if data[k] < 0:
+                    data[k] = 0.
+
+        return data, err
 
     ######################
     ### Saving results ###
