@@ -79,8 +79,6 @@ class Rfast(RfastBaseClass):
 
         # attributes for retrieval things
         self.retrieval = None
-        self.dat = None
-        self.err = None
         self.retrieval_processes = []
         
         # saving
@@ -371,15 +369,15 @@ class Rfast(RfastBaseClass):
     ### Retrieval ###
     #################
     
-    def _lnprob(self, x_t):
+    def _lnprob(self, x_t, dat, err):
         """log-probability function for MCMC
         """
-        return ret_funcs.lnprob(x_t, self, self.dat, self.err)
+        return ret_funcs.lnprob(x_t, self, dat, err)
     
-    def _lnlike_nest(self, x_t):
+    def _lnlike_nest(self, x_t, dat, err):
         """log-likelihood function for nested sampling
         """
-        return ret_funcs.lnlike_nest(x_t, self, self.dat, self.err)
+        return ret_funcs.lnlike_nest(x_t, self, dat, err)
      
     def _prior_transform(self, u):
         """prior transformation for nested sampling   
@@ -462,10 +460,10 @@ class Rfast(RfastBaseClass):
 
     def _emcee_retrieve(self, dat, err, progress, overwrite, h5_file):
         backend, pos = self.prepare_emcee_retrieval(overwrite=overwrite, h5_file=h5_file)
-        self.dat = dat
-        self.err = err
+        
+        args = (dat, err,)
         sampler = emcee.EnsembleSampler(self.scr.nwalkers, self.retrieval.nret, \
-                                        self._lnprob, backend=backend)
+                                        self._lnprob, backend=backend, args=args)
         sampler.run_mcmc(pos, self.scr.nstep, progress=progress)
 
     def emcee_retrieve(self, dat, err, progress=False, overwrite=False, h5_file=None):
@@ -482,7 +480,7 @@ class Rfast(RfastBaseClass):
     
     ### nested retrievals
                         
-    def prepare_nested_retrieval(self, dat, err, **kwargs):
+    def prepare_nested_retrieval(self, dat, err, nlive = 1000, **kwargs):
         retrieval = self.retrieval
         # check for initialization
         if retrieval is None:
@@ -495,15 +493,14 @@ class Rfast(RfastBaseClass):
 
         if dat.size != self.lam.size or err.size != self.lam.size:
             raise ValueError("Input dat and var have the wrong size")
-            
-        self.dat = dat
-        self.err = err
         
+        args = (dat, err,)
         sampler = dynesty.NestedSampler(self._lnlike_nest, self._prior_transform, retrieval.nret, \
-                                               **kwargs)
+                                        nlive = nlive, logl_args=args, **kwargs)
         return sampler
         
-    def nested_retrieve(self, dat, err, progress=False, overwrite=False, file=None, dlogz = 0.001, **kwargs):
+    def nested_retrieve(self, dat, err, progress=False, overwrite=False, file=None, 
+                        dlogz = 0.001, nlive = 1000, **kwargs):
         if file is None:
             filename = self.scr.dirout + self.scr.fnr + '.pkl'
         else:
@@ -515,15 +512,15 @@ class Rfast(RfastBaseClass):
             else:
                 raise Exception("File already exists")
         
-        sampler = self.prepare_nested_retrieval(dat, err, **kwargs)
+        sampler = self.prepare_nested_retrieval(dat, err, nlive = nlive, **kwargs)
         sampler.run_nested(dlogz=dlogz, print_progress = progress)
             
         with open(filename, 'wb') as f:
             pickle.dump(sampler.results, f)
             
-    def nested_process(self, dat, err, file, dlogz = 0.001):
+    def nested_process(self, dat, err, file, dlogz = 0.001, nlive = 1000):
         p = Process(target=self.nested_retrieve, args=(
-            dat, err, False, False, file, dlogz))
+            dat, err, False, False, file, dlogz, nlive))
         p.start()
         out = {}
         out['process'] = p
