@@ -9,6 +9,8 @@ import astropy as ap
 import emcee
 import dynesty
 
+from multiprocess import Process
+
 from . import routines as rtns
 from . import atm_routines as atm_rtns
 from . import opac_routines as opac_rtns
