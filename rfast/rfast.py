@@ -30,10 +30,42 @@ class Rfast(RfastBaseClass):
         # set info for all radiatively active gases, including background gas
         self.gparams = GasParams(self.scr.bg)
 
-        # lams, laml, res, modes, snr0, lam0
-        # Inputs needed to regrid everything
-
         # generate wavelength grids
+        self._wavelength_grid(scr.lams, scr.laml, scr.res, scr.modes, scr.snr0, scr.lam0, Nres)
+        
+        # initialize disk integration quantities
+        threeD = rtns.init_3d(self.scr.src, self.scr.ntg)        
+        self.threeD = threeD
+
+        # attributes for retrieval things
+        self.retrieval = None
+        self.retrieval_processes = []
+        
+        # saving
+        self._species_r_save = None
+        self._f0_save = None
+        self._colr_save = None
+        self._scr_genspec_inputs_save = None
+
+        # prevent new attributes
+        self._freeze()
+        
+    #################
+    ### Utilities ###
+    #################
+    def wavelength_grid(self, lam, res, modes, snr0, lam0, Nres = 3):
+        lams = lam[:-1]
+        laml = lam[1:]
+        self._wavelength_grid(lams, laml, res, modes, snr0, lam0, Nres)
+        
+    def _wavelength_grid(self, lams, laml, res, modes, snr0, lam0, Nres):
+        self.scr.lams = lams
+        self.scr.laml = laml
+        self.scr.res = res
+        self.scr.modes = modes
+        self.scr.snr0 = snr0
+        self.scr.lam0 = lam0
+        
         lam, dlam = rtns.gen_spec_grid(self.scr.lams, self.scr.laml,
                                        np.float_(self.scr.res), Nres=0)
         lam_hr, dlam_hr = rtns.gen_spec_grid(self.scr.lams, self.scr.laml,
@@ -52,10 +84,6 @@ class Rfast(RfastBaseClass):
         gc, wc, Qc = opac_rtns.init_cloud_optics(lam_hr, self.scr.g1, self.scr.g2,
                                                  self.scr.g3, self.scr.w, self.scr.lamc0, self.scr.grey, self.scr.cld, self.scr.opdir)
 
-        # initialize disk integration quantities
-        threeD = rtns.init_3d(self.scr.src, self.scr.ntg)
-
-        # Save data for later use
         self.lam = lam
         self.dlam = dlam
         self.lam_hr = lam_hr
@@ -69,30 +97,14 @@ class Rfast(RfastBaseClass):
         self.gc = gc
         self.wc = wc
         self.Qc = Qc
-        self.threeD = threeD
-
+        
         # genspec inputs that are from the input file
+        scr = self.scr
         self.scr_genspec_inputs = \
             [scr.f0, scr.pmax, scr.Rp, scr.Mp, scr.gp, scr.As, scr.pt, scr.dpc,
              scr.tauc0, scr.fc, scr.t0, scr.a, self.gc, self.wc, self.Qc, scr.alpha,
              self.gparams.mb, self.gparams.rayb]
-
-        # attributes for retrieval things
-        self.retrieval = None
-        self.retrieval_processes = []
         
-        # saving
-        self._species_r_save = None
-        self._f0_save = None
-        self._colr_save = None
-        self._scr_genspec_inputs_save = None
-
-        # prevent new attributes
-        self._freeze()
-        
-    #################
-    ### Utilities ###
-    #################
     
     def remove_gas(self, gas, remove_from_retrieval = True):
         
