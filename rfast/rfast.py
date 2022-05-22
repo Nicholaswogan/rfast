@@ -259,7 +259,7 @@ class Rfast(RfastBaseClass):
         if scr.cld:
             tauc = tauc0 * Qc
         else:
-            tauc = np.zeros(len(scr.lam_hr))
+            tauc = np.zeros(len(self.lam_hr))
 
         # call forward model
         F1_hr, F2_hr = \

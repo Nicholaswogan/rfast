@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 
 r = Rfast('ModernEarth/rfast_inputs.scr')
 F1, F2 = r.genspec_scr()
-F1_noH2O, F2_noH2O = r.genspec_scr(omit_gases=['h2o'])
+F1_noH2O, F2_noH2O = r.genspec_scr(omit_gas='h2o')
 
 plt.rcParams.update({'font.size': 18})
 fig,ax = plt.subplots(1,1,figsize=[8,5])
