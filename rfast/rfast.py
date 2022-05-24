@@ -355,6 +355,23 @@ class Rfast(RfastBaseClass):
                     data[k] = 0.
 
         return data, err
+        
+    def noise_at_FpFs(self, F2, FpFs_for_err):
+
+        err = np.empty(self.lam.size)
+        for i in range(self.scr.snr0.size):
+            ilam = np.where(np.logical_and(
+                self.lam >= self.scr.lams[i], self.lam <= self.scr.laml[i]))
+            err[ilam] = np.ones(len(ilam[0]))*(FpFs_for_err/self.scr.snr0[i])
+            
+        data = np.copy(F2)
+        if self.scr.rnd:
+            for k in range(len(self.lam)):
+                data[k] = np.random.normal(F2[k], err[k])
+                if data[k] < 0:
+                    data[k] = 0.
+            
+        return data, err
 
     ######################
     ### Saving results ###
