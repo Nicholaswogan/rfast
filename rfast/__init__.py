@@ -8,3 +8,6 @@ from .retrieval import lnprob
 # for nested retrievals
 from .retrieval import lnlike_nest
 from .retrieval import prior_transform
+
+# utilities
+from .utils import detection_sigma
