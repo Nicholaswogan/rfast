@@ -186,15 +186,15 @@ class Rfast(RfastBaseClass):
             # "distance" scaling for thermal emission case
             if (self.scr.src == 'thrm'):
                 Rp = x[2]
-                F1 = F1 * (Rp / scr.Rp)**2  # SHOULD THIS LINE BE HERE?
-                F2 = F2 * (Rp / scr.Rp)**2
+                F1 = F1 * (Rp / self.scr.Rp)**2  # SHOULD THIS LINE BE HERE?
+                F2 = F2 * (Rp / self.scr.Rp)**2
             out = (F1, F2)
         else:
             F2 = rtns.kernel_convol(self.kern, F2_hr)
             # "distance" scaling for thermal emission case
             if (self.scr.src == 'thrm'):
                 Rp = x[2]
-                F2 = F2 * (Rp / scr.Rp)**2
+                F2 = F2 * (Rp /self.scr.Rp)**2
             out = F2
 
         return out
@@ -202,7 +202,7 @@ class Rfast(RfastBaseClass):
     def _genspec_scr_hr(self):
         scr = self.scr
         F1_hr, F2_hr = self._genspec_x_hr(
-            self.scr_genspec_inputs, rdtmp=scr.rdgas, rdgas=scr.rdgas)
+            self.scr_genspec_inputs, rdtmp=scr.rdtmp, rdgas=scr.rdgas)
         return F1_hr, F2_hr
 
     def _genspec_x_hr(self, x, rdtmp=False, rdgas=False):
