@@ -33,7 +33,7 @@ def cia_read(species, lam, opdir):
 
     # uniform temperature grid to interpolate onto
     temp = [100., 200., 300., 400., 500., 750., 1000.]
-    temp = np.float_(temp)
+    temp = np.float64(temp)
 
     # number of cia cases associated with co2, h2, n2, o2
     ngas = 4

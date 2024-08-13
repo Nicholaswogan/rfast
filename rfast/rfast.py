@@ -69,9 +69,9 @@ class Rfast(RfastBaseClass):
         self.scr.lam0 = lam0
         
         lam, dlam = rtns.gen_spec_grid(self.scr.lams, self.scr.laml,
-                                       np.float_(self.scr.res), Nres=0)
+                                       np.float64(self.scr.res), Nres=0)
         lam_hr, dlam_hr = rtns.gen_spec_grid(self.scr.lams, self.scr.laml,
-                                             np.float_(self.scr.res) *
+                                             np.float64(self.scr.res) *
                                              self.scr.smpl,
                                              Nres=np.rint(Nres * self.scr.smpl))
         mode = rtns.modes_to_mode(
